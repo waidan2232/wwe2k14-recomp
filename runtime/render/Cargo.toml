@@ -1,0 +1,14 @@
+[package]
+name = "render"
+description = "The wgpu executor for the render IR: runs ahead-of-time translated shaders on D3D's captured state (Phase 4)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+gpu = { path = "../gpu" }
+kernel = { path = "../kernel" }
+# The version Bevy 0.20.1 uses, so the host can hand over its device.
+wgpu = "30.0.2"
+foldhash = "0.2"

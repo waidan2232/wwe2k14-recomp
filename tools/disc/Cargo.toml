@@ -1,0 +1,9 @@
+[package]
+name = "disc"
+description = "Read-only Xbox 360 disc image (XDVDFS) reader and extractor"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]

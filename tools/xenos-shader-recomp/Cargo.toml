@@ -1,0 +1,21 @@
+[package]
+name = "xenos-shader-recomp"
+description = "Offline Xenos shader microcode to WGSL translator (Phase 4)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# The renderer uses the library (microcode decoding, shader identity, fetch
+# descriptors) without the tool's dependencies.
+[features]
+default = ["tool"]
+tool = ["dep:naga", "dep:pac"]
+
+[dependencies]
+naga = { version = "30.0.2", features = ["wgsl-in"], optional = true }
+pac = { path = "../pac", optional = true }
+
+[[bin]]
+name = "xenos-shader-recomp"
+required-features = ["tool"]

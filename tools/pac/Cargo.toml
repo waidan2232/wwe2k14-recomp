@@ -1,0 +1,10 @@
+[package]
+name = "pac"
+description = "Reader for the game's .pac archives: XCompress (LZX) unwrapping and Yuke's container formats (Phase 4)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+lzxd = "0.2.7"

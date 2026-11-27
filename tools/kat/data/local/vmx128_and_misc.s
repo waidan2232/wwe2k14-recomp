@@ -1,0 +1,260 @@
+# Known-answer tests written for this project (expected values worked out by
+# hand from the PowerPC/VMX definitions). They cover what the Xenia vectors
+# don't: VMX128 registers above v63, the VMX128 multiply-add operand orders,
+# vperm128's 3-bit VC field, CR6 from VMX128 record compares, and scalar
+# instructions the game uses that have no Xenia vector.
+
+# vD = vA * vB + vD
+test_vmaddfp128_high_regs:
+  #_ REGISTER_IN v100 [3F800000, 40000000, 40400000, 40800000]
+  #_ REGISTER_IN v65 [40000000, 40000000, 40000000, 40000000]
+  #_ REGISTER_IN v70 [3F000000, 3E800000, 3F800000, 40000000]
+  vmaddfp128 v100, v65, v70, v100
+  blr
+  #_ REGISTER_OUT v100 [40000000, 40200000, 40A00000, 41000000]
+
+# vD = vA * vD + vB
+test_vmaddcfp128:
+  #_ REGISTER_IN v100 [3F800000, 40000000, 40400000, 40800000]
+  #_ REGISTER_IN v65 [40000000, 40000000, 40000000, 40000000]
+  #_ REGISTER_IN v70 [3F000000, 3E800000, 3F800000, 40000000]
+  vmaddcfp128 v100, v65, v100, v70
+  blr
+  #_ REGISTER_OUT v100 [40200000, 40880000, 40E00000, 41200000]
+
+# vD = -(vA * vB - vD): vD is the accumulator, as in vmaddfp128. The game's
+# vector normalize relies on it: vD = 0.5, vA = x/2, vB = y0*y0 gives the
+# Newton step 0.5 - x/2 * y0^2 for 1/sqrt(x). (Our 4-operand syntax lists vD
+# third; the result is what matters.)
+test_vnmsubfp128:
+  #_ REGISTER_IN v100 [40800000, 40800000, 40800000, 41000000]
+  #_ REGISTER_IN v65 [40000000, 40000000, 40000000, 40000000]
+  #_ REGISTER_IN v70 [3F000000, 3E800000, 3F800000, 40000000]
+  vnmsubfp128 v100, v65, v100, v70
+  blr
+  #_ REGISTER_OUT v100 [40400000, 40600000, 40000000, 40800000]
+
+test_vperm128_vc_field:
+  #_ REGISTER_IN v80 [00010203, 04050607, 08090A0B, 0C0D0E0F]
+  #_ REGISTER_IN v81 [10111213, 14151617, 18191A1B, 1C1D1E1F]
+  #_ REGISTER_IN v5 [1F1E1D1C, 03020100, 10101010, 00000000]
+  vperm128 v90, v80, v81, v5
+  blr
+  #_ REGISTER_OUT v90 [1F1E1D1C, 03020100, 10101010, 00000000]
+
+# vD = (vB & vD) | (vA & ~vD)
+test_vsel128:
+  #_ REGISTER_IN v70 [AAAAAAAA, AAAAAAAA, AAAAAAAA, AAAAAAAA]
+  #_ REGISTER_IN v71 [55555555, 55555555, 55555555, 55555555]
+  #_ REGISTER_IN v100 [FFFF0000, 0000FFFF, F0F0F0F0, 00000000]
+  vsel128 v100, v70, v71, v100
+  blr
+  #_ REGISTER_OUT v100 [5555AAAA, AAAA5555, 5A5A5A5A, AAAAAAAA]
+
+test_vcmpeqfp128_record_all_true:
+  #_ REGISTER_IN v70 [3F800000, 40000000, 40400000, 40800000]
+  #_ REGISTER_IN v71 [3F800000, 40000000, 40400000, 40800000]
+  vcmpeqfp128. v100, v70, v71
+  mfcr r12
+  blr
+  #_ REGISTER_OUT v100 [FFFFFFFF, FFFFFFFF, FFFFFFFF, FFFFFFFF]
+  #_ REGISTER_OUT r12 0x80
+
+test_vcmpeqfp128_record_all_false:
+  #_ REGISTER_IN v70 [3F800000, 40000000, 40400000, 40800000]
+  #_ REGISTER_IN v71 [BF800000, C0000000, C0400000, C0800000]
+  vcmpeqfp128. v100, v70, v71
+  mfcr r12
+  blr
+  #_ REGISTER_OUT v100 [00000000, 00000000, 00000000, 00000000]
+  #_ REGISTER_OUT r12 0x20
+
+test_vcmpgtfp128_record_mixed:
+  #_ REGISTER_IN v70 [3F800000, 40000000, 40400000, 40800000]
+  #_ REGISTER_IN v71 [40000000, 40000000, 40000000, 40000000]
+  vcmpgtfp128. v100, v70, v71
+  mfcr r12
+  blr
+  #_ REGISTER_OUT v100 [00000000, 00000000, FFFFFFFF, FFFFFFFF]
+  #_ REGISTER_OUT r12 0
+
+test_vcmpequw128_record:
+  #_ REGISTER_IN v70 [00000001, 00000002, 00000003, 00000004]
+  #_ REGISTER_IN v71 [00000001, 00000002, 00000003, 00000004]
+  vcmpequw128. v127, v70, v71
+  mfcr r12
+  blr
+  #_ REGISTER_OUT v127 [FFFFFFFF, FFFFFFFF, FFFFFFFF, FFFFFFFF]
+  #_ REGISTER_OUT r12 0x80
+
+test_vspltw128_high_regs:
+  #_ REGISTER_IN v127 [11111111, 22222222, 33333333, 44444444]
+  vspltw128 v100, v127, 3
+  blr
+  #_ REGISTER_OUT v100 [44444444, 44444444, 44444444, 44444444]
+
+test_vspltisw128:
+  vspltisw128 v100, -2
+  blr
+  #_ REGISTER_OUT v100 [FFFFFFFE, FFFFFFFE, FFFFFFFE, FFFFFFFE]
+
+test_vsldoi128:
+  #_ REGISTER_IN v80 [00010203, 04050607, 08090A0B, 0C0D0E0F]
+  #_ REGISTER_IN v81 [10111213, 14151617, 18191A1B, 1C1D1E1F]
+  vsldoi128 v100, v80, v81, 4
+  blr
+  #_ REGISTER_OUT v100 [04050607, 08090A0B, 0C0D0E0F, 10111213]
+
+test_vcsxwfp128:
+  #_ REGISTER_IN v80 [00000002, FFFFFFFC, 00000000, 00000007]
+  vcsxwfp128 v100, v80, 1
+  blr
+  #_ REGISTER_OUT v100 [3F800000, C0000000, 00000000, 40600000]
+
+# Saturates, and NaN converts to 0.
+test_vcfpsxws128:
+  #_ REGISTER_IN v70 [3FC00000, BFC00000, 4F32D05E, 7FC00000]
+  vcfpsxws128 v100, v70, 0
+  blr
+  #_ REGISTER_OUT v100 [00000001, FFFFFFFF, 7FFFFFFF, 00000000]
+
+# Denormal inputs count as zero (keeping their sign); -0 + +0 = +0.
+test_vaddfp128_flushes_denormals:
+  #_ REGISTER_IN v70 [00000001, 80000001, 3F800000, 00800000]
+  #_ REGISTER_IN v71 [00000000, 00000000, 00000000, 00000000]
+  vaddfp128 v100, v70, v71
+  blr
+  #_ REGISTER_OUT v100 [00000000, 00000000, 3F800000, 00800000]
+
+# Denormal results are flushed too: 2^-126 * 0.5.
+test_vmulfp128_flushes_results:
+  #_ REGISTER_IN v70 [00800000, 80800000, 3F800000, 3F800000]
+  #_ REGISTER_IN v71 [3F000000, 3F000000, 3F000000, 3F000000]
+  vmulfp128 v100, v70, v71
+  blr
+  #_ REGISTER_OUT v100 [00000000, 80000000, 3F000000, 3F000000]
+
+test_vmsum4fp128:
+  #_ REGISTER_IN v70 [3F800000, 40000000, 40400000, 40800000]
+  #_ REGISTER_IN v71 [3F000000, 3F000000, 3F000000, 3F000000]
+  vmsum4fp128 v100, v70, v71
+  blr
+  #_ REGISTER_OUT v100 [40A00000, 40A00000, 40A00000, 40A00000]
+
+test_vupkhsh128:
+  #_ REGISTER_IN v80 [0001FFFF, 80007FFF, 00020003, FFFEFFFD]
+  vupkhsh128 v100, v80
+  blr
+  #_ REGISTER_OUT v100 [00000001, FFFFFFFF, FFFF8000, 00007FFF]
+
+test_vupklsh128:
+  #_ REGISTER_IN v80 [0001FFFF, 80007FFF, 00020003, FFFEFFFD]
+  vupklsh128 v100, v80
+  blr
+  #_ REGISTER_OUT v100 [00000002, 00000003, FFFFFFFE, FFFFFFFD]
+
+test_vmrghw128:
+  #_ REGISTER_IN v80 [00010203, 04050607, 08090A0B, 0C0D0E0F]
+  #_ REGISTER_IN v81 [10111213, 14151617, 18191A1B, 1C1D1E1F]
+  vmrghw128 v100, v80, v81
+  blr
+  #_ REGISTER_OUT v100 [00010203, 10111213, 04050607, 14151617]
+
+test_vmrglw128:
+  #_ REGISTER_IN v80 [00010203, 04050607, 08090A0B, 0C0D0E0F]
+  #_ REGISTER_IN v81 [10111213, 14151617, 18191A1B, 1C1D1E1F]
+  vmrglw128 v100, v80, v81
+  blr
+  #_ REGISTER_OUT v100 [08090A0B, 18191A1B, 0C0D0E0F, 1C1D1E1F]
+
+test_lvx128_stvx128_high_regs:
+  #_ MEMORY_IN 10001000 00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f
+  #_ REGISTER_IN r4 0x10001004
+  #_ REGISTER_IN r6 0x10001100
+  lvx128 v100, r0, r4
+  stvx128 v100, r0, r6
+  blr
+  #_ REGISTER_OUT v100 [00010203, 04050607, 08090A0B, 0C0D0E0F]
+  #_ MEMORY_OUT 10001100 00010203 04050607 08090A0B 0C0D0E0F
+
+test_stvewx_stvehx_stvebx:
+  #_ REGISTER_IN v3 [00010203, 04050607, 08090A0B, 0C0D0E0F]
+  #_ REGISTER_IN r4 0x10001008
+  #_ REGISTER_IN r5 0x1000100A
+  #_ REGISTER_IN r6 0x10001003
+  stvewx v3, r0, r4
+  stvehx v3, r0, r5
+  stvebx v3, r0, r6
+  blr
+  #_ MEMORY_OUT 10001000 00000003 00000000 08090A0B 00000000
+
+# ---- scalar
+
+test_cr_logic:
+  li r3, 5
+  cmpwi r3, 5
+  cror 4, 2, 2
+  crorc 5, 0, 0
+  crxor 2, 2, 2
+  mcrf cr7, cr1
+  mfcr r12
+  blr
+  #_ REGISTER_OUT r12 0x0C00000C
+
+test_lfsux_stfsux:
+  #_ MEMORY_IN 10001008 3f 80 00 00
+  #_ REGISTER_IN r4 0x10001000
+  #_ REGISTER_IN r5 8
+  #_ REGISTER_IN r6 0x10001000
+  #_ REGISTER_IN r7 0x10
+  #_ REGISTER_IN f2 2.0
+  lfsux f1, r4, r5
+  stfsux f2, r6, r7
+  blr
+  #_ REGISTER_OUT f1 1.0
+  #_ REGISTER_OUT r4 0x10001008
+  #_ REGISTER_OUT r6 0x10001010
+  #_ MEMORY_OUT 10001010 40000000
+
+# Round to nearest, ties to even.
+test_fctid:
+  #_ REGISTER_IN f1 2.5
+  #_ REGISTER_IN f3 3.5
+  #_ REGISTER_IN f5 -2.5
+  fctid f2, f1
+  fctid f4, f3
+  fctid f6, f5
+  blr
+  #_ REGISTER_OUT f2 0x0000000000000002
+  #_ REGISTER_OUT f4 0x0000000000000004
+  #_ REGISTER_OUT f6 0xFFFFFFFFFFFFFFFE
+
+test_mffs_mtfsf_default_mode:
+  #_ REGISTER_IN f2 0x0000000000000000
+  mtfsf 0xFF, f2
+  mffs f1
+  blr
+  #_ REGISTER_OUT f1 0x0000000000000000
+
+test_msr_round_trip:
+  #_ REGISTER_IN r13 0x8000
+  #_ REGISTER_IN r5 0x1234
+  mtmsrd r13, 1
+  mfmsr r4
+  mtmsrd r5, 0
+  mfmsr r6
+  lwsync
+  sync
+  blr
+  #_ REGISTER_OUT r4 0x8000
+  #_ REGISTER_OUT r6 0x1234
+
+test_mfocrf_selects_one_field:
+  li r3, 5
+  cmpwi cr0, r3, 5
+  cmpwi cr7, r3, 6
+  mfocrf r4, 0x80
+  mfocrf r5, 0x01
+  blr
+  #_ REGISTER_OUT r4 0x20000000
+  #_ REGISTER_OUT r5 0x00000008

@@ -1,0 +1,12 @@
+/target/
+
+# Derived from the game disc. Never commit or publish these.
+/private/
+/generated/
+
+# The user's own songs (custom music folder).
+/music/
+
+# Local scratch.
+/drawlog.txt
+/.claude/

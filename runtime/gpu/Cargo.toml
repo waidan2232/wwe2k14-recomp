@@ -1,0 +1,13 @@
+[package]
+name = "gpu"
+description = "Native replacement of the game's D3D9 (Xbox 360) library at its API boundary"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+ppc-rt = { path = "../ppc-rt" }
+kernel = { path = "../kernel" }
+xenos-shader-recomp = { path = "../../tools/xenos-shader-recomp", default-features = false }
+foldhash = "0.2"

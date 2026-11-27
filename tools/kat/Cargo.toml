@@ -1,0 +1,20 @@
+[package]
+name = "kat"
+description = "Known-answer tests: instruction test vectors translated ahead of time by the recompiler and run as native code"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+build = "build/main.rs"
+
+[dependencies]
+ppc-rt = { path = "../../runtime/ppc-rt" }
+
+[dev-dependencies]
+xex.workspace = true
+
+[build-dependencies]
+analyse = { path = "../analyse" }
+ppc.workspace = true
+recomp = { path = "../recomp" }
+xex.workspace = true

@@ -1,0 +1,4 @@
+# Tested with Rust 1.99.1. This stays on "stable" rather than "1.99.1" so rustup
+# doesn't download a second copy of the release that's already installed.
+[toolchain]
+channel = "stable"

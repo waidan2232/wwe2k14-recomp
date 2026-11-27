@@ -1,0 +1,11 @@
+[package]
+name = "audio"
+description = "Native replacements for the game's XMA audio paths (software decoding at the voice level)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+ppc-rt = { path = "../ppc-rt" }
+kernel = { path = "../kernel" }

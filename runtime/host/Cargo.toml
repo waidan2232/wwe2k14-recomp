@@ -1,0 +1,24 @@
+[package]
+name = "host"
+description = "The game's host: boots the guest on its own threads and runs the renderer (plan §2.6)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+kernel = { path = "../kernel" }
+gpu = { path = "../gpu" }
+render = { path = "../render" }
+wgpu = "30.0.2"
+# Audio output (plan §2.5).
+cpal = "0.18"
+# The process's allocator: the capture, the renderer and their worker
+# threads allocate and free per draw; the Windows heap's lock made them wait
+# on each other (a fifth of the renderer's time went to freeing frames).
+# The window and its render world (plan §2.6). Only what the host uses:
+# window, render, core pipeline and 2D sprites, and Bevy's built-in font for
+# the keyboard prompt's text (window.rs).
+bevy = { workspace = true, default-features = false, features = ["2d_bevy_render", "default_app", "std", "bevy_winit", "bevy_gilrs", "multi_threaded", "default_font"] }
+# The window icon (taskbar): `Icon::from_resource`, the same winit Bevy uses.
+winit = { version = "0.30", default-features = false }

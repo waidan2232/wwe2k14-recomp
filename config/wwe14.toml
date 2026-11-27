@@ -1,0 +1,366 @@
+# Facts about default.xex that the analysis can't derive, and decisions about
+# how particular code is translated. Read by `recomp`, which checks every entry
+# against the analysis and stops if one doesn't hold.
+#
+# Function boundaries and switch tables are not listed here: the analysis
+# finds them itself (see STATUS.md, Phase 1).
+
+# setjmp / longjmp.
+#
+# Every call to a `setjmp` entry becomes a point a longjmp can resume. Each
+# `longjmp_returns` entry is the `blr` at the end of longjmp, after it has
+# reloaded r1 and LR from the jmp_buf; it becomes a native unwind to the
+# function that called setjmp. The analysis lists every such stack-switching
+# return, and recomp refuses to run unless this list matches it exactly.
+[nonlocal]
+setjmp = [0x83438D70]
+longjmp_returns = [0x83438D38]
+
+# Native replacements.
+#
+# Each entry turns a guest function into a stub that calls native code,
+# registered under `name` by a runtime crate (the D3D ones by `runtime/gpu`).
+# The original stays callable as `__imp__sub_X`. The names are ours: the
+# executable has no symbols (see docs/d3d.md for how each was identified).
+
+# D3D: the hardware half of device creation (`sub_82CC0DA0`, called once by
+# Direct3D_CreateDevice). The native version keeps its CPU-side steps and drops
+# every GPU one.
+[[replace]]
+address = 0x82CC0DA0
+name = "D3DDevice_InitializeHardware"
+
+# D3D: writes the scissor/viewport registers the device already shadows as
+# command packets (stores nothing but the cursor). Native: nothing to do.
+[[replace]]
+address = 0x82CA8CD0
+name = "D3DDevice_WriteViewportScissor"
+
+# D3D: updates bits 12-13 of the shadow word at +0x2B24 and writes it out as
+# packets. Native: the shadow update only.
+[[replace]]
+address = 0x82CBAEE0
+name = "D3DDevice_Set2B24Bits"
+
+# D3D: sets the shader register-allocation shadow word (+0x2B28), writes
+# indirect-buffer packets for shader microcode, marks the state dirty. Native:
+# the shadow update and the dirty marking. Also called by the game renderer.
+[[replace]]
+address = 0x82CB0F58
+name = "D3DDevice_SetShaderAllocation"
+
+# D3D: Swap (queue the front buffer for scan-out). Native: D3D's bookkeeping;
+# frames complete immediately; the front buffer goes to the host.
+[[replace]]
+address = 0x82CB37C0
+name = "D3DDevice_Swap"
+
+# D3D: inline-vertex draws (DrawPrimitiveUP style). BeginVertices returns space
+# for the vertices (natively a scratch buffer; the original returns command-buffer
+# space after a draw packet); EndVertices is the draw.
+[[replace]]
+address = 0x82CB1520
+name = "D3DDevice_BeginVertices"
+
+[[replace]]
+address = 0x82CB1510
+name = "D3DDevice_EndVertices"
+
+# Predicated tiling: BeginTiling(device, flags, count, tile rects, clear colour,
+# f1 Z, stencil) and EndTiling(device, resolve flags, resolve rects, dest texture,
+# clear colour, f1 Z, stencil, parameters). A tiled frame becomes one full pass.
+[[replace]]
+address = 0x82CB78E0
+name = "D3DDevice_BeginTiling"
+
+[[replace]]
+address = 0x82CB7C50
+name = "D3DDevice_EndTiling"
+
+# D3DDevice_SetPredication(device, mask): the tiles later draws run in (and Hi-Z), then a packet.
+[[replace]]
+address = 0x82CB7770
+name = "D3DDevice_SetPredication"
+
+# InsertCallback(device, type, callback, context): a packet that makes the GPU
+# interrupt the CPU, whose handler calls callback(context).
+[[replace]]
+address = 0x82CB71D0
+name = "D3DDevice_InsertCallback"
+
+# SynchronizeToPresentationInterval: worker (device, flag) behind the API entry
+# sub_82CB37B8 (flag 0) and sub_82CB3F28; GPU waits on the vertical blank, a GPU
+# callback and Hi-Z packets. Swap paces to the vertical blank natively.
+[[replace]]
+address = 0x82CB3300
+name = "D3DDevice_SynchronizeToPresentationInterval"
+
+# DrawIndexedVertices(device, primitive, base vertex, start index, index count):
+# flushes the dirty state into the command buffer, then writes the draw packets.
+[[replace]]
+address = 0x82CB19E0
+name = "D3DDevice_DrawIndexedVertices"
+
+# Clear(device, count, rects, flags, ARGB colour, f1 Z, stencil, EDRAM clear):
+# clears the bound targets through command packets.
+[[replace]]
+address = 0x82CB52B8
+name = "D3DDevice_Clear"
+
+# Resolve(device, flags, source rect, dest texture, dest point, level, slice,
+# clear colour, f1 clear Z, clear stencil, parameters): the wrapper the game and
+# D3D call (worker sub_82CAEA30 is reached only through it). It copies a render
+# target into a texture and optionally clears; its packets fill the command
+# buffer, whose space allocator (sub_82CB57F0) would wait for a GPU forever.
+[[replace]]
+address = 0x82CAFB88
+name = "D3DDevice_Resolve"
+
+# Audio: the XMA hardware layers (XAudio2's at 0x82D28250.., the one Wwise uses at
+# 0x8343A088..) are never modelled. XMA decoding is replaced at the voice level;
+# until then XMACreateContext stops the game. These touch the hardware without a
+# context: the version reads feed only their layer's context creation, and
+# XAudio2's per-frame sync has nothing to do while no context exists.
+[[replace]]
+address = 0x83439FB8
+name = "Xma_ReadHardwareVersion_Wwise"
+
+[[replace]]
+address = 0x82D28250
+name = "Xma_ReadHardwareVersion_XAudio2"
+
+[[replace]]
+address = 0x82D28AD8
+name = "XAudio2_SyncXmaContexts"
+
+# Every function that builds GPU command packets, touches MMIO or calls a
+# GPU-facing import must end up behind a replaced function. recomp reports the
+# ones still reachable (generated/rust/gpu_reachable.txt), and with `enforce`
+# (on since 2026-11-25, when the last one was cut) any is a build error.
+[gpu]
+enforce = true
+
+# The game's render lists (runtime/gpu/src/lists.rs): recording a display list
+# waits while another thread walks the lists, the order the console's timing
+# gave; the walk is timed for the perf log. Both run the original code.
+[[replace]]
+address = 0x82BB4AE0
+name = "RenderLists_Record"
+
+[[replace]]
+address = 0x82BB5BE8
+name = "RenderLists_Walk"
+
+# D3D's prerecorded command buffers (EndCommandBuffer flushes state into one
+# through packet writers; RunCommandBuffer sends event and bin-mask packets).
+# Neither was called in a whole session (2026-11-25).
+[[unreachable]]
+address = 0x82CB9D20
+note = "D3D RunCommandBuffer, event and bin-mask packets"
+
+[[unreachable]]
+address = 0x82CB9900
+note = "D3D EndCommandBuffer, flushes dirty state into a prerecorded buffer through packet writers"
+
+# The game's frame-rate mode (60, 50, 30 or 25): the port locks it at 60
+# (runtime/gpu/src/present.rs `set_frame_rate`), then runs the original.
+[[replace]]
+address = 0x82BB6BB0
+name = "Game_SetFrameRate"
+
+# The game's copy routines, as native memmove (runtime/kernel/src/crt.rs):
+# recompiled, they made the game's resource handling stall frames.
+[[replace]]
+address = 0x82C79000
+name = "Crt_Memcpy"
+
+[[replace]]
+address = 0x82261340
+name = "Game_Memcpy"
+
+[[replace]]
+address = 0x82C79488
+name = "Crt_CopyTail"
+
+# The CRT's memset, as a native fill (runtime/kernel/src/crt.rs).
+[[replace]]
+address = 0x82C79530
+name = "Crt_Memset"
+
+# Finds a table entry by "name.ext", case-insensitively (kernel::crt): the
+# render thread's 60-75 ms stall when an entrance starts.
+[[replace]]
+address = 0x82BA9178
+name = "Game_FindEntryByName"
+
+# The cube depth bake (kernel::bake): a 190 ms stall when an entrance starts.
+[[replace]]
+address = 0x82F58250
+name = "Game_BakeCubeDepth"
+
+# The BPE stream decoder (kernel::bpe): most of a 128 ms stall when a match
+# starts (the bell).
+[[replace]]
+address = 0x82C41918
+name = "Game_BpeExpand"
+
+# The game's switch to half rate (loading screens): a no-op under the lock.
+[[replace]]
+address = 0x82BB6D50
+name = "Game_HalveFrameRate"
+
+# Two D3D functions that run, whose only command packet (WAIT_REG_MEM) sits
+# behind a D3D global the port never sets: native wrappers fail loudly if it is
+# set, and run the original otherwise (runtime/gpu/src/commands.rs).
+[[replace]]
+address = 0x82CADA88
+name = "D3D_GuardedWaitA"
+
+[[replace]]
+address = 0x82CADBF8
+name = "D3D_GuardedWaitB"
+
+# D3D: Release on the device (the reference count at +0x3C). Saving a created
+# superstar destroys a D3D helper object that holds a device reference
+# (sub_82BAFE98 -> sub_82D04490). At zero the original shuts the GPU down
+# (sub_82CC0948, its only caller) and frees the device. Native: the decrement;
+# reaching zero is a fatal error (runtime/gpu/src/device.rs).
+[[replace]]
+address = 0x82CB22D0
+name = "D3DDevice_Release"
+
+# Hardware-facing functions the port never runs: each was never called in a
+# whole session (call tracing, 2026-11-25), and each is the highest such
+# function on its path to packet, MMIO or engine code. Their bodies are fatal
+# errors; a path that reaches one gets a native version.
+[[unreachable]]
+address = 0x82CB5758
+note = "D3D, reads a GPU register through MMIO; address taken"
+
+[[unreachable]]
+address = 0x82CB2A28
+note = "D3D presentation-statistics callback, MMIO; queued only by the original SynchronizeToPresentationInterval"
+
+[[unreachable]]
+address = 0x82CC10E8
+note = "D3D, reaches REG_RMW, indirect-buffer, WAIT_REG_MEM, event and COND_WRITE packets"
+
+[[unreachable]]
+address = 0x82CCA6B0
+note = "D3D, reaches indirect-buffer, REG_TO_MEM, MEM_WRITE, event and bin-select packets, MMIO and L2 locking"
+
+[[unreachable]]
+address = 0x82CC1170
+note = "D3D, reaches the scaler command buffer and COND_WRITE packets"
+
+[[unreachable]]
+address = 0x82CC3598
+note = "D3D, draws with its own packets: DRAW_INDX_2, IM_LOAD_IMMEDIATE, SET_CONSTANT2"
+
+[[unreachable]]
+address = 0x82CC00F0
+note = "D3D, MMIO; address taken"
+
+[[unreachable]]
+address = 0x82CC0720
+note = "D3D, VdShutdownEngines"
+
+[[unreachable]]
+address = 0x82CC6AC0
+note = "D3D, reaches MMIO"
+
+[[unreachable]]
+address = 0x82CC0878
+note = "D3D, reaches REG_RMW packets"
+
+[[unreachable]]
+address = 0x8343AAB0
+note = "XMA hardware layer, MMIO; audio is native"
+
+[[unreachable]]
+address = 0x82CB6EA8
+note = "D3D command-buffer space allocator; reached only when a packet writer outgrows the buffer, which no native path does"
+
+[[unreachable]]
+address = 0x82CB2358
+note = "D3D, reaches ring-buffer setup, ME_INIT and VdInitializeRingBuffer"
+
+# Registers as host locals (tools/recomp/src/locals.rs). Off until the
+# known-answer tests pass with it on and a build with it has been played:
+# with it off, every register stays in the context struct as before.
+[locals]
+enabled = false
+
+# The Jukebox's USER PLAYLIST with several songs ticked (kernel::jukebox; the
+# user's request, 2026-11-26). Each wraps the original: the input handler
+# turns a toggle into an add or remove in the native selection, the row
+# builder ticks rows from it, and the menu music's pick plays the selected
+# songs in turn at the custom-song slot.
+[[replace]]
+address = 0x82B3A4B8
+name = "Game_JukeboxInput"
+
+[[replace]]
+address = 0x82B397B8
+name = "Game_JukeboxRows"
+
+[[replace]]
+address = 0x82ACD5D8
+name = "Game_JukeboxPick"
+
+# The menu-music system's "is it playing" query and its stop (kernel::jukebox):
+# a custom song started by the Jukebox counts as playing and stops with the
+# Jukebox, so a mode with its own menu music (30 Years of WrestleMania) takes
+# over as it does from a licensed track (user68, 2026-11-26).
+[[replace]]
+address = 0x82ACCFC8
+name = "Game_MenuMusicPlaying"
+
+[[replace]]
+address = 0x82ACCA50
+name = "Game_MenuMusicStop"
+
+# The menu-music player starting a named piece of music (an era theme from a
+# 30 Years of WrestleMania menu script): the Jukebox's custom song stops first
+# (kernel::jukebox; user70, 2026-11-26).
+[[replace]]
+address = 0x82ACE298
+name = "Game_MenuMusicPlayNamed"
+
+# The cloth time step (kernel::cloth): after a camera cut the game settles the
+# wrestlers' cloth with a fixed 14 steps of 1/rate; under the 60 fps lock in
+# 30 fps scenes (entrances) that was half the settling, and John Cena's belt
+# strap twitched (user74, 2026-11-26). Those settle steps see 30 fps.
+[[replace]]
+address = 0x824F56E8
+name = "Game_ClothStep"
+
+# The entrance-music request (kernel::entrance): a custom song (music id
+# 0x270E) that is in the music folder plays through the game's own Wwise as
+# theme 9990 (arena reverb, music bus), its PCM served from an addition to
+# the sound packages, instead of on the native music player (2026-11-26).
+[[replace]]
+address = 0x8334C138
+name = "Game_EntranceMusicRequest"
+
+# The music player's request queue: a custom entrance song asked for in a
+# match becomes theme 9990, played through Wwise (kernel::entrance).
+[[replace]]
+address = 0x82ACE130
+name = "Game_MusicJob"
+
+# Camera cuts in half-rate scenes under the 60 fps lock (gpu::present): the
+# game's switch back to full rate clears the "half rate wanted" flag, and the
+# animated camera's clock holds the old shot on the odd frame before a cut
+# instead of showing a 50/50 blend of two shots (2026-11-26).
+[[replace]]
+address = 0x82BB6DF0
+name = "Game_RestoreFrameRate"
+
+# The camera update (gpu::present::camera_update): keeps the previous view on
+# the blended in-between frame before a cut. (The clock wrapper
+# `Game_CameraClock`, 0x825B6848, looked cuts up in event tables that are empty
+# during entrances, user82; no longer used.)
+[[replace]]
+address = 0x825B69E0
+name = "Game_CameraUpdate"

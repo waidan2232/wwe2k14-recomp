@@ -1,0 +1,9 @@
+[package]
+name = "stfs"
+description = "Read-only Xbox 360 STFS package (LIVE/PIRS/CON) reader and extractor: title updates and downloadable content"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]

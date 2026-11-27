@@ -1,0 +1,10 @@
+[package]
+name = "ppc"
+description = "PowerPC / VMX / VMX128 (Xenon) instruction decoder and disassembler"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+build = "build.rs"
+
+[dependencies]
