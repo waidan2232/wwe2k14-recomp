@@ -84,7 +84,8 @@ Nothing else is in flight. Both workspaces build clean from the current sources.
 The user asked for a portable copy for their laptop: `D:\WWE2K14-Portable`.
 - The game's own `WWE2K14.exe` sits at its top with `vcruntime140.dll` (the user didn't want a launcher). `runtime/host/src/portable.rs`: when `game\default.xex` is beside the exe, that folder becomes the working directory and `WWE14_SHADERS`, `WWE14_MUSIC_DIR`, `WWE14_PIPELINE_KEYS`, `WWE14_PIPELINE_CACHE` default to its `shaders\`, `music\`, `cache\`. The kernel finds `hdd\` from the xex's folder.
 - **The exe has no console now (`windows_subsystem = "windows"`, in the generated main).** The log goes to `WWE14_LOG` if set, else to a redirected stderr, else `logs\last-run.log` beside the exe. In the release, a fatal stop also shows a message box (`kernel::diag::FATAL_LOG`).
-- `source\` is the source tree without `target`, `generated`, `private`, `music`.
+- `source\` is the source tree without `target`, `generated`, `private`, `music`. Zipped (stored, no compression) to `D:\WWE2K14-Portable.zip`.
+- **GitHub:** the source is public at `waidan2232/wwe14-recomp` (pushed 2026-11-26, the user's request). Commit as `waidan2232` with the GitHub noreply address (local git config). `.gitignore` excludes `private/`, `generated/`, `target/`, `music/`.
 - To refresh it after a build: copy both exes again (and `private\pac-wgsl` if shaders changed).
 - The build needs AVX2 (`target-cpu=x86-64-v3`); the launcher checks and says so.
 

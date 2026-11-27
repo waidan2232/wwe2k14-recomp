@@ -1,4 +1,4 @@
-# wwe14-recomp
+# wwe2k14-recomp
 
 A static-recompilation port of WWE 2K14 (Xbox 360) to Rust, with a Bevy host. **No emulation of any kind.** See [CLAUDE.md](CLAUDE.md) for the rule and [PLAN.md](PLAN.md) for the plan.
 
