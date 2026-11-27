@@ -127,7 +127,7 @@ pub fn resolve(r: Resolve) {
         let range = texture::guest_range(&d).unwrap_or((0, 0));
         // (A range under a diagnostic watch is not read: that would end the watch.)
         if !mem::watched(range.0) {
-            b.resolve_dests.insert(texture::physical(d.base), (range.0, range.1, fingerprint(range)));
+            b.resolve_dests.insert(texture::physical(d.base), (range.0, range.1, fingerprint(range), shape(&d)));
         }
     }
     if b.sink.is_some() {
@@ -217,7 +217,8 @@ pub fn request_readback(phys: u32, after_frame: u64) -> Result<ReadImage, String
 /// it doesn't take that for a texture the CPU loaded there.
 pub fn resolved_memory_written(phys: u32, virt: u32, len: u32) {
     if let Some(b) = BUILDER.lock().unwrap().as_mut() {
-        b.resolve_dests.insert(phys, (virt, len, fingerprint((virt, len))));
+        let known = b.resolve_dests.get(&phys).map_or(0, |e| e.3);
+        b.resolve_dests.insert(phys, (virt, len, fingerprint((virt, len)), known));
     }
 }
 
@@ -397,7 +398,12 @@ struct Builder {
     /// and its fingerprint at the resolve: the renderer samples the rendered
     /// image there, so guest memory is not captured, until the CPU rewrites
     /// it (a new texture loaded into memory a render target used).
-    resolve_dests: HashMap<u32, (u32, u32, u64)>,
+    /// Last: the resolve image's shape (`shape`; 0 when not known). A fetch that
+    /// reads the memory with another format or size is not sampling that image
+    /// (user99: a font texture, format 2, in memory a colour image was once
+    /// resolved to; the fingerprint, 128 bytes a page, missed the letters the CPU
+    /// added, which drew as black boxes).
+    resolve_dests: HashMap<u32, (u32, u32, u64, u64)>,
     /// Sampled textures reported as not captured (base, reason).
     missing: std::collections::HashSet<(u32, String)>,
 }
@@ -902,6 +908,12 @@ fn report_missing(b: &mut Builder, slot: u32, w: &[u32; 6], f: Option<&Fetch>) {
 
 /// A cheap fingerprint of a guest range: 64 bytes at the start and middle of
 /// each 4 KB page (a texture loaded over it rewrites them all).
+/// A texture's format and size, to tell the image a resolve wrote from another
+/// texture read from the same memory.
+fn shape(f: &Fetch) -> u64 {
+    (f.format as u64) << 48 | (f.width as u64) << 24 | f.height as u64
+}
+
 fn fingerprint((virt, len): (u32, u32)) -> u64 {
     let mut h = 0x9E37_79B9_7F4A_7C15u64 ^ len as u64;
     let mut at = 0;
@@ -944,8 +956,9 @@ fn texture_job(b: &mut Builder, slot: u32, words: &[u32; 6]) -> Option<usize> {
         return None;
     };
     let phys = texture::physical(f.base);
-    if let Some(&(virt, len, print)) = b.resolve_dests.get(&phys) {
-        if mem::watched(virt) || fingerprint((virt, len)) == print {
+    if let Some(&(virt, len, print, was)) = b.resolve_dests.get(&phys) {
+        let same_image = was == 0 || was == shape(&f);
+        if same_image && (mem::watched(virt) || fingerprint((virt, len)) == print) {
             return None;
         }
         // The CPU wrote there after the resolve: its texels are the texture now.
