@@ -80,6 +80,21 @@ pub struct Resolved {
     pub label: &'static str,
 }
 
+/// The mods folder: `mods\` beside the disc folder (`private\mods` in the
+/// project, `mods\` in a release folder). A file there at the same path as one
+/// on the disc (`mods\pac\ch\ch139.pac`) is read in its place: data
+/// conversion at the file boundary, for mods. Missing folder:
+/// no mods.
+static MODS: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
+
+pub fn set_mods(dir: PathBuf) {
+    let found = dir.is_dir().then_some(dir);
+    if let Some(d) = &found {
+        crate::diag::log(&format!("mods: files in {} replace the disc's", d.display()));
+    }
+    let _ = MODS.set(found);
+}
+
 /// Resolves a guest object path (`\??\game:\a\b.pac`, `game:\a`,
 /// `\Device\Cdrom0\a`) to a host path. `..` never climbs above the device.
 pub fn resolve(path: &str) -> Option<Resolved> {
@@ -108,19 +123,27 @@ pub fn resolve(path: &str) -> Option<Resolved> {
             .max_by_key(|d| d.name.len())?;
         let rest = &p[dev.name.len()..];
         let mut host = dev.host.clone();
-        let mut depth = 0usize;
+        let mut parts: Vec<&str> = Vec::new();
         for part in rest.split('\\') {
             match part {
                 "" | "." => {}
                 ".." => {
-                    if depth > 0 {
+                    if parts.pop().is_some() {
                         host.pop();
-                        depth -= 1;
                     }
                 }
                 _ => {
                     host.push(part);
-                    depth += 1;
+                    parts.push(part);
+                }
+            }
+        }
+        // A file in the mods folder replaces the disc's file at the same path.
+        if dev.read_only && !parts.is_empty() {
+            if let Some(Some(mods)) = MODS.get() {
+                let alt = parts.iter().fold(mods.clone(), |p, s| p.join(s));
+                if alt.is_file() {
+                    host = alt;
                 }
             }
         }

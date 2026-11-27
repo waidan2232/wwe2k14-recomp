@@ -1,6 +1,7 @@
 ﻿[workspace]
 resolver = "3"
-members = ["runtime/audio", "runtime/gpu", "runtime/kernel", "runtime/host", "runtime/ppc-rt", "runtime/render", "tools/analyse", "tools/disc", "tools/kat", "tools/pac", "tools/ppc", "tools/recomp", "tools/stfs", "tools/xenos-shader-recomp", "tools/xex"]
+members = ["runtime/*", "tools/*"]
+# Every crate under runtime/ and tools/ (local-only crates join when present).
 # Recompiler output is its own workspace (generated/rust).
 exclude = ["generated"]
 

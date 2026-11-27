@@ -238,6 +238,7 @@ pub fn boot(p: Program, args: Vec<String>) -> Booted {
     let game_dir = xex.parent().map(PathBuf::from).unwrap_or_default();
     let data_dir = game_dir.parent().map(|d| d.join("hdd")).unwrap_or_else(|| PathBuf::from("hdd"));
     file::add_device("\\Device\\Cdrom0", game_dir.clone(), true, "WWE 2K14");
+    file::set_mods(game_dir.parent().map(|d| d.join("mods")).unwrap_or_else(|| PathBuf::from("mods")));
     file::add_device("\\Device\\Harddisk0\\Partition1", data_dir.join("partition1"), false, "HDD");
     file::add_device("\\Device\\Harddisk0\\Cache0", data_dir.join("cache0"), false, "Cache0");
     file::add_device("\\Device\\Harddisk0\\Cache1", data_dir.join("cache1"), false, "Cache1");

@@ -64,6 +64,17 @@ Windows 10 or 11 (64-bit), a CPU with AVX2 (Intel 4th generation / AMD Ryzen or 
 
 Never upload the extracted game, the generated code or a release folder: they contain the game's copyrighted files.
 
+## Custom music
+
+The Xbox 360 let you play your own music in games. The port does the same with a folder of song files on your PC.
+
+- **Where:** a folder named `music`: in the project folder when you run from the project, or beside `WWE2K14.exe` in a release folder. Subfolders work (up to four levels deep). Set `WWE14_MUSIC_DIR` to use another folder.
+- **Formats:** MP3, FLAC, WAV, OGG, M4A/MP4 (AAC and ALAC), AIFF and MKA.
+- **Names:** songs show under their title tag, or the file name when they have none.
+- **In the menus:** open the game's Jukebox and choose the **User Playlist**. Tick any number of your songs. They play shuffled in place of the game's menu music, and the first song is shuffled too. The game's own music stays quiet until your save has loaded, so it doesn't cut in at the title screen. Your selection is kept in `music\.wwe14-playlist`.
+- **As entrance music:** pick one of your songs as entrance music with the game's own custom-music choice (in Create an Entrance). In a match it plays through the game's own sound mixer, with the same arena reverb as the built-in themes. Set `WWE14_ENTRANCE_WWISE=off` to play it straight instead.
+- The music volume starts at 45%. Add or remove songs while the game is closed; the list is read when the game starts.
+
 ## Crates
 
 | Crate | Purpose |

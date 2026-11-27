@@ -77,7 +77,11 @@ Nothing else is in flight. Both workspaces build clean from the current sources.
 - `generated\rust\target\release\wwe14.exe`: registers in the context; the fallback. Built 2026-11-25 17:13 from the same sources.
 - To rebuild after a runtime change: `cargo build --release` inside `generated\rust-locals` (about 20 s for a kernel or host change; minutes if Bevy's features change). Run cargo from PowerShell, not Git Bash.
 - To regenerate the recompiled code (only after a recompiler or config change): `cargo run --release -p recomp -- private\game\default.xex generated\rust-locals --locals on`. The config has `[locals] enabled = false`; the switch on the command line makes the locals build.
-- The project folder is not a git repository. Nothing is under version control, so there is no way back from a bad edit except these notes.
+- The project folder is a git repository (since 2026-11-26), pushed to GitHub (below). Local-only files are gitignored.
+
+## The mods folder (2026-11-26)
+
+A file at `mods\<path>` beside the disc folder (`private\mods` here, `mods\` in a release folder) replaces the disc's file at `<path>` (`kernel::file`, `set_mods`). Local-only notes and crates, when present, are listed in `.git/info/exclude`.
 
 ## Portable release (2026-11-26)
 
